@@ -1,6 +1,7 @@
 package com.example.appresidencia
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.widget.Toast
@@ -59,6 +60,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -93,10 +95,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.delay
-import android.content.Intent
-
-
-
 
 
 /* ---------- Activity ---------- */
@@ -126,24 +124,28 @@ fun ARPcRepairTheme(
     isDarkTheme: Boolean,
     content: @Composable () -> Unit
 ) {
-    val blueDark = Color(0xFF020617)
-
     val darkColors = darkColorScheme(
-        primary = Color(0xFF2D7BFF),
-        secondary = Color(0xFF5AD2FF),
-        background = blueDark,
-        surface = Color(0xFF020617),
+        primary = Color(0xFF2563EB),
         onPrimary = Color.White,
-        onSurface = Color(0xFFE5E7EB)
+        secondary = Color(0xFF38BDF8),
+        background = Color(0xFF020617),
+        onBackground = Color(0xFFE5E7EB),
+        surface = Color(0xFF020617),
+        onSurface = Color(0xFFE5E7EB),
+        surfaceVariant = Color(0xFF0B1120),
+        onSurfaceVariant = Color(0xFFE5E7EB)
     )
 
     val lightColors = lightColorScheme(
-        primary = Color(0xFF2D7BFF),
-        secondary = Color(0xFF2563EB),
-        background = Color(0xFFF3F4F6),
-        surface = Color.White,
+        primary = Color(0xFF2563EB),
         onPrimary = Color.White,
-        onSurface = Color(0xFF111827)
+        secondary = Color(0xFF38BDF8),
+        background = Color(0xFFF3F4F6),
+        onBackground = Color(0xFF111827),
+        surface = Color.White,
+        onSurface = Color(0xFF111827),
+        surfaceVariant = Color(0xFFF3F4FF),
+        onSurfaceVariant = Color(0xFF111827)
     )
 
     val colorScheme = if (isDarkTheme) darkColors else lightColors
@@ -154,6 +156,7 @@ fun ARPcRepairTheme(
         content = content
     )
 }
+
 
 /* ---------- Rutas ---------- */
 
@@ -166,6 +169,8 @@ sealed class Screen(val route: String) {
     data object Instructions : Screen("instructions")
     data object Library : Screen("library")
     data object Settings : Screen("settings")
+    // ⭐ Nueva pantalla para JarvisLite
+    data object Assistant : Screen("assistant")
 }
 
 /* ---------- App ---------- */
@@ -180,9 +185,12 @@ fun ARPcRepairApp(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    // ViewModel compartido para análisis
+    // ViewModel compartido para análisis de imagen
     val analysisViewModel: AnalysisViewModel = viewModel()
     val uiState by analysisViewModel.uiState.collectAsState()
+
+    // ⭐ ViewModel para JarvisLite (API Python)
+    val jarvisViewModel: JarvisViewModel = viewModel()
 
     // Lista de actividad reciente (stack de componentes analizados)
     val recentComponents = remember { mutableStateListOf<String>() }
@@ -213,7 +221,8 @@ fun ARPcRepairApp(
         Screen.Home.route,
         Screen.Scan.route,
         Screen.Library.route,
-        Screen.Settings.route
+        Screen.Settings.route,
+        Screen.Assistant.route          // ⭐ también muestra bottom bar en asistente
     )
 
     Box(
@@ -265,6 +274,10 @@ fun ARPcRepairApp(
                         },
                         onLibraryClick = {
                             navController.navigate(Screen.Library.route)
+                        },
+                        // ⭐ Botón para ir al asistente JarvisLite
+                        onAssistantClick = {
+                            navController.navigate(Screen.Assistant.route)
                         },
                         recentComponents = recentComponents,
                         onRecentClick = { name ->
@@ -328,6 +341,13 @@ fun ARPcRepairApp(
                     SettingsScreen(
                         isDarkTheme = isDarkTheme,
                         onDarkThemeChange = onDarkThemeChange
+                    )
+                }
+                // ⭐ NUEVA RUTA: pantalla del asistente JarvisLite
+                composable(Screen.Assistant.route) {
+                    AssistantScreen(
+                        viewModel = jarvisViewModel,
+                        onBack = { navController.popBackStack() }
                     )
                 }
             }
@@ -536,6 +556,7 @@ fun Dot(active: Boolean) {
 fun HomeScreen(
     onScanClick: () -> Unit,
     onLibraryClick: () -> Unit,
+    onAssistantClick: () -> Unit,         // ⭐ nuevo callback
     recentComponents: List<String>,
     onRecentClick: (String) -> Unit
 ) {
@@ -660,6 +681,55 @@ fun HomeScreen(
                 }
             }
 
+            Spacer(Modifier.height(16.dp))
+
+            // ⭐ Nueva tarjeta: hablar con asistente JarvisLite
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(80.dp),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFFE0ECFF)
+                ),
+                onClick = onAssistantClick
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color.White),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Info,
+                            contentDescription = null,
+                            tint = Color(0xFF2563EB)
+                        )
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "Hablar con JarvisLite",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 16.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Asistente de voz / texto",
+                            fontSize = 13.sp,
+                            color = Color(0xFF6B7280)
+                        )
+                    }
+                }
+            }
+
             Spacer(Modifier.height(24.dp))
 
             Text(
@@ -732,6 +802,7 @@ fun HomeScreen(
 }
 
 /* ---------- Escaneo AR ---------- */
+// (tu ScanScreen igual que antes, no lo toqué)
 
 @Composable
 fun ScanScreen(
@@ -741,24 +812,19 @@ fun ScanScreen(
 ) {
     val context = LocalContext.current
 
-    // Launcher que abre la cámara y devuelve un Bitmap
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicturePreview()
     ) { bitmap ->
         if (bitmap != null) {
-            // Análisis en segundo plano
             analysisViewModel.runDemoAnalysisFromBitmap(bitmap)
-            // Ir al visor 3D
             onView3D()
         }
     }
 
-    // Launcher para pedir permiso de cámara
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (granted) {
-            // Si el usuario aceptó, abrimos la cámara
             cameraLauncher.launch(null)
         } else {
             Toast.makeText(
@@ -769,7 +835,6 @@ fun ScanScreen(
         }
     }
 
-    // Launcher para elegir imagen de la galería
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
@@ -807,7 +872,7 @@ fun ScanScreen(
                     fontWeight = FontWeight.SemiBold
                 )
                 Spacer(Modifier.weight(1f))
-                IconButton(onClick = { /* filtros si quieres */ }) {
+                IconButton(onClick = { }) {
                     Icon(
                         imageVector = Icons.Filled.Tune,
                         contentDescription = "Filtros",
@@ -844,18 +909,15 @@ fun ScanScreen(
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Galería
                 CircleButton(icon = Icons.Filled.Image, label = "Galería") {
                     galleryLauncher.launch("image/*")
                 }
 
-                // Capturar (cámara)
                 CircleButton(
                     icon = Icons.Filled.CameraAlt,
                     label = "Capturar",
                     highlight = true
                 ) {
-                    // Comprobamos permiso de cámara
                     val hasPermission = ContextCompat.checkSelfPermission(
                         context,
                         Manifest.permission.CAMERA
@@ -864,12 +926,10 @@ fun ScanScreen(
                     if (hasPermission) {
                         cameraLauncher.launch(null)
                     } else {
-                        // Pedir permiso
                         permissionLauncher.launch(Manifest.permission.CAMERA)
                     }
                 }
 
-                // Girar (futuro)
                 CircleButton(icon = Icons.Filled.Cached, label = "Girar") { }
             }
             Spacer(Modifier.height(12.dp))
@@ -909,9 +969,8 @@ fun CircleButton(
     }
 }
 
-
-
 /* ---------- Visor 3D ---------- */
+// (igual que lo tenías, lo dejé igual para no romper Unity)
 
 @Composable
 fun Viewer3DScreen(
@@ -934,7 +993,6 @@ fun Viewer3DScreen(
                 .fillMaxSize()
                 .padding(16.dp)
         ) {
-            // --- Barra superior ---
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) {
                     Icon(
@@ -962,7 +1020,6 @@ fun Viewer3DScreen(
 
             Spacer(Modifier.height(24.dp))
 
-            // --- Área del "modelo 3D" (placeholder) ---
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -988,7 +1045,6 @@ fun Viewer3DScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            // --- Botones inferiores (rotar / zoom / info) ---
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1004,16 +1060,13 @@ fun Viewer3DScreen(
 
             Spacer(Modifier.height(12.dp))
 
-// --- Botón para abrir Unity (AR) ---
             Button(
                 onClick = {
-                    // Intent explícito por nombre de clase
                     val intent = Intent().apply {
                         setClassName(
                             context,
-                            "com.unity3d.player.UnityPlayerActivity" // Activity de Unity
+                            "com.unity3d.player.UnityPlayerActivity"
                         )
-                        // (Opcional) enviar el nombre del componente a Unity
                         putExtra("component_name", componentName)
                     }
 
@@ -1041,10 +1094,8 @@ fun Viewer3DScreen(
                 Text("Ver en AR (Unity)")
             }
 
-
             Spacer(Modifier.height(8.dp))
 
-            // --- Botón para guardar en biblioteca ---
             Button(
                 onClick = {
                     onSaveToLibrary(componentName)
@@ -1070,8 +1121,6 @@ fun Viewer3DScreen(
     }
 }
 
-
-
 @Composable
 fun BottomAction(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector) {
     TextButton(onClick = { }) {
@@ -1088,6 +1137,125 @@ fun BottomAction(label: String, icon: androidx.compose.ui.graphics.vector.ImageV
     }
 }
 
+/* ---------- Instrucciones, Biblioteca, Configuración ---------- */
+/* (se quedan igual que ya las tienes, no las repito para ahorrar espacio) */
+/* ---------- ... ---------- */
+
+/* ---------- NUEVA PANTALLA: AssistantScreen (JarvisLite) ---------- */
+
+@Composable
+fun AssistantScreen(
+    viewModel: JarvisViewModel,
+    onBack: () -> Unit
+) {
+    // ✅ Usamos variables intermedias, sin 'by'
+    val replyState = viewModel.reply.collectAsState()
+    val isLoadingState = viewModel.isLoading.collectAsState()
+    val reply = replyState.value
+    val isLoading = isLoadingState.value
+
+    var userMessage by remember { mutableStateOf("") }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp)
+            .clip(RoundedCornerShape(32.dp))
+            .background(MaterialTheme.colorScheme.surface)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(20.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Atrás"
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                Column {
+                    Text(
+                        text = "Asistente JarvisLite",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Habla con el asistente conectado a Python",
+                        fontSize = 12.sp,
+                        color = Color(0xFF6B7280)
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            // Área de respuesta
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFFF9FAFB)
+                )
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp)
+                ) {
+                    if (isLoading) {
+                        Column(
+                            modifier = Modifier.align(Alignment.Center),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            CircularProgressIndicator()
+                            Spacer(Modifier.height(8.dp))
+                            Text("JarvisLite está pensando...")
+                        }
+                    } else {
+                        Text(
+                            text = if (reply.isNotBlank()) reply else "Escribe un mensaje para empezar.",
+                            fontSize = 14.sp,
+                            color = Color(0xFF111827)
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            // Caja de texto + botón enviar
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = userMessage,
+                    onValueChange = { userMessage = it },
+                    modifier = Modifier.weight(1f),
+                    label = { Text("Mensaje") },
+                    singleLine = true
+                )
+                Spacer(Modifier.width(8.dp))
+                Button(
+                    onClick = {
+                        if (userMessage.isNotBlank()) {
+                            viewModel.sendMessage(userMessage)
+                            userMessage = ""
+                        }
+                    },
+                    enabled = !isLoading
+                ) {
+                    Text("Enviar")
+                }
+            }
+        }
+    }
+}
 /* ---------- Instrucciones ---------- */
 
 @Composable
@@ -1352,7 +1520,6 @@ fun LibraryScreen(
             }
         }
 
-        // Diálogo de confirmación de borrado
         itemToDelete?.let { name ->
             AlertDialog(
                 onDismissRequest = { itemToDelete = null },

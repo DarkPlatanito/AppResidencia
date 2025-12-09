@@ -1,13 +1,18 @@
 package com.example.appresidencia
 
+import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.POST
 
-/**
- * Interfaz de Retrofit (la dejamos lista por si después conectas backend).
- * OJO: Aquí ya NO se declara AnalysisResponseDto, solo se usa.
- */
 interface ApiService {
 
+    // Endpoint que usa AnalysisViewModel
     @GET("demo-analysis")
     suspend fun getDemoAnalysis(): AnalysisResponseDto
+
+    // Endpoint que usa JarvisViewModel
+    @POST("chat")
+    suspend fun sendMessage(
+        @Body request: JarvisRequestDto
+    ): JarvisResponseDto
 }

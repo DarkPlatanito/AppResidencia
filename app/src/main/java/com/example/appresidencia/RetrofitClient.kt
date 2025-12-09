@@ -9,8 +9,8 @@ import retrofit2.converter.moshi.MoshiConverterFactory
 
 object RetrofitClient {
 
-    // Emulador Android → localhost de tu PC
-    private const val BASE_URL = "http://10.0.2.2:8000"
+    // Emulador Android → localhost PC
+    private const val BASE_URL = "http://10.0.2.2:8000/"   // ✅ con / al final
 
     private val moshi: Moshi = Moshi.Builder()
         .add(KotlinJsonAdapterFactory())
